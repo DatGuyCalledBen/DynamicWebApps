@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vortex Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.1.1/math.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <h1>Vortex Simulation</h1>
+    <canvas id="vortexCanvas" width="800" height="800"></canvas>
+
+    <script>
+        const canvas = document.getElementById('vortexCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const no = 3;
+        const tSpan = [0, 1000];
+        const tEval = math.range(tSpan[0], tSpan[1], 1, true)._data;
+        const epsilon = 1e-8;
+
+        const circulations = Array.from({ length: no }, () => Math.random() * 15 - 5);
+        const initialConditions = Array.from({ length: 2 * no }, () => Math.random() * 20 - 10);
+
+        function vortexODE(t, y) {
+            const dydt = [];
+            for (let i = 0; i < no; i++) {
+                const xi = y[2 * i];
+                const yi = y[2 * i + 1];
+                let sum_x = 0;
+                let sum_y = 0;
+                for (let j = 0; j < no; j++) {
+                    if (i !== j) {
+                        const xj = y[2 * j];
+                        const yj = y[2 * j + 1];
+                        const common_denominator = (xi - xj) ** 2 + (yi - yj) ** 2 + epsilon;
+                        sum_x += (circulations[j] / (2 * Math.PI)) * ((xi - xj) / common_denominator);
+                        sum_y += (circulations[j] / (2 * Math.PI)) * ((yi - yj) / common_denominator);
+                    }
+                }
+                dydt.push(sum_y);
+                dydt.push(-sum_x);
+            }
+            return dydt;
+        }
+
+        function rungeKuttaStep(f, t, y, h) {
+            const k1 = f(t, y).map(d => d * h);
+            const k2 = f(t + h / 2, math.add(y, math.multiply(0.5, k1))).map(d => d * h);
+            const k3 = f(t + h / 2, math.add(y, math.multiply(0.5, k2))).map(d => d * h);
+            const k4 = f(t + h, math.add(y, k3)).map(d => d * h);
+            return math.add(y, math.multiply(1 / 6, math.add(k1, math.multiply(2, k2), math.multiply(2, k3), k4)));
+        }
+
+        function solveODE(f, tSpan, y0, tEval) {
+            const y = [y0];
+            for (let i = 1; i < tEval.length; i++) {
+                const h = tEval[i] - tEval[i - 1];
+                y.push(rungeKuttaStep(f, tEval[i - 1], y[y.length - 1], h));
+            }
+            return y;
+        }
+
+        const solution = solveODE(vortexODE, tSpan, initialConditions, tEval);
+        const xSol = solution.map(y => y.filter((_, index) => index % 2 === 0));
+        const ySol = solution.map(y => y.filter((_, index) => index % 2 !== 0));
+
+        function drawVortexSimulation() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+
+            for (let i = 0; i < no; i++) {
+                ctx.beginPath();
+                ctx.moveTo(xSol[0][i] * 10, ySol[0][i] * 10);
+                for (let j = 1; j < tEval.length; j++) {
+                    ctx.lineTo(xSol[j][i] * 10, ySol[j][i] * 10);
+                }
+                ctx.stroke();
+            }
+
+            ctx.resetTransform();
+        }
+
+        drawVortexSimulation();
+    </script>
+</body>
+</html>
